@@ -13,8 +13,10 @@ def part_one(data: str) -> int:
     return max(sum(elf) for elf in data)
 
 def part_two(data: str) -> int:
-    pass
+    return sum(sorted(sum(elf) for elf in data)[-3:])
 
 if __name__ == "__main__":
     data = parse(read_input(day=DAY))
     print(part_one(data))
+    print(part_two(data))
+    
