@@ -1,7 +1,6 @@
 from collections import defaultdict
 from utils import read_input
-from heapq import heappush, heappop
-from math import inf
+from collections import deque
 
 DAY = 12
 
@@ -31,41 +30,34 @@ def neighbors(i, j):
 def part_one(data: str) -> int:
     start, end, grid = data
     todo = [(0, start)]
-    distances = defaultdict(lambda: inf)
-    visited = set()
+    seen = {start}
     while todo:
-        d, x = heappop(todo)
+        dist, x = todo.pop(0)
         if x == end:
-            break
+            return dist
         for n in neighbors(*x):
-            if grid[n] > grid[x] + 1 or (n in visited):
+            if grid[n] > grid[x] + 1 or (n in seen):
                 continue
-            if distances[n] > d + 1:
-                distances[n] = d + 1
-                heappush(todo, (d + 1, n))
-        visited.add(x)
-    return d
+            todo.append((dist + 1, n))
+            seen.add(n)
         
 
 def part_two(data: str) -> int:
     start, end, grid = data
-    todo = [(0, end)]
-    distances = defaultdict(lambda: inf)
-    visited = set()
+    todo = deque([(0, end)])
+    seen = {end}
     while todo:
-        d, x = heappop(todo)
+        d, x = todo.popleft()
         if not grid[x]:
-            break
+            return d
         for n in neighbors(*x):
-            if grid[n] < grid[x] - 1 or (n in visited):
+            if grid[n] < grid[x] - 1 or (n in seen):
                 continue
-            if distances[n] > d + 1:
-                distances[n] = d + 1
-                heappush(todo, (d + 1, n))
-        visited.add(x)
-    return d
+            seen.add(n)
+            todo.append((d + 1, n))
 
 
 if __name__ == "__main__":
     data = parse(read_input(day=DAY))
+    print(part_one(data))
     print(part_two(data))
