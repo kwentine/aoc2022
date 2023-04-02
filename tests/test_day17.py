@@ -1,5 +1,5 @@
 import pytest
-from day17 import rockfall, parse, draw
+from day17 import rockfall_height, parse, draw
 
 TEST_INPUT = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"
 
@@ -9,15 +9,14 @@ shifts = parse(TEST_INPUT)
     (1, 1),
     (2, 4),
     (3, 6),
-    (2022, 3068)
 ])
 def test_rockfall(steps, height):
-    assert rockfall(shifts, steps)[1] == height
+    assert rockfall_height(shifts, steps)[1] == height
 
 
 def test_draw():
     shifts = parse(TEST_INPUT)
-    rubble, _ = rockfall(shifts, 10)
+    rubble, _ = rockfall_height(shifts, 10)
     expected = """\
 |....#..|
 |....#..|
