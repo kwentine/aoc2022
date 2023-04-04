@@ -1,12 +1,13 @@
 from utils import read_input, ints
+from typing import Any
 
 def parse(input_str: str):
     pass
 
-def part_one(data: str) -> int:
+def part_one(data: Any) -> int:
     pass
 
-def part_two(data: str) -> int:
+def part_two(data: Any) -> int:
     pass
 
 if __name__ == "__main__":
