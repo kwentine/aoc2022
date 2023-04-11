@@ -1,17 +1,33 @@
 from functools import cache
 from utils import read_input, ints
 from tqdm import tqdm
+from collections import defaultdict
+from heapq import heappush, heappop
 
 MINERALS = ORE, CLAY, OBS, GEO = range(4)
+
 
 def harvest(state):
     minerals, robots = state
     return tuple(map(sum, zip(minerals, robots))), robots
 
+
 def build(state, target, recipe):
     minerals, robots = state
     return (tuple(x - y for x, y in zip(minerals, recipe)),
             tuple(x + (y == target) for x, y in zip(robots, MINERALS)))
+
+
+def should_harvest(state, blueprint):
+    """Harvest if it makes a robot that is not already accessible accessible"""
+    minerals, robots = state
+    for (i, recipe) in enumerate(blueprint):
+        if can_afford(state, recipe):
+            continue
+        if all(robots[j] for (j, cost) in enumerate(recipe) if cost):
+            return True
+    return False
+
 
 def can_afford(state, recipe):
     minerals, _ = state
@@ -28,48 +44,42 @@ def may_build_robot(m, state, blueprint):
 def parse(input_str: str):
     blueprints = []
     for line in input_str.strip().splitlines():
-        _, ore_ore, clay_ore, obs_ore, obs_clay, geo_ore, geo_obs = ints(line)
+        _, *costs = ints(line)
         blueprints.append((
-            # TODO: The second tuple is redundant, use the index
-            (ore_ore, 0, 0, 0),
-            (clay_ore, 0, 0, 0),
-            (obs_ore, obs_clay, 0, 0),
-            (geo_ore, 0, geo_obs, 0),
+            (costs[0], 0, 0, 0),
+            (costs[1], 0, 0, 0),
+            (costs[2], costs[3], 0, 0),
+            (costs[4], 0, costs[5], 0),
         ))
     return blueprints
 
 
-def score(robots):
-    return tuple(-i for i in reversed(robots))
+def score(state, t):
+    minerals, robots = state
+    return t, -state[1][GEO]
 
 
-from collections import deque, defaultdict
-from heapq import heappush, heappop
 def bfs_explorer(blueprint, tmax):
 
     def bfs(start_state):
-        todo = [(score(start_state[1]), start_state, 0)]
+        todo = [(score(start_state, 0), start_state, 0)]
         seen = {(start_state, 0)}
-        best_so_far = defaultdict(int)
-        geo_max = 0
-        while todo:
+        geo_rbt = defaultdict(lambda: (0,))
+        geo_max = set()
+        while todo and len(geo_max) < 1:
             _, state, t = heappop(todo)
             minerals, robots = state
+            if robots[-1:] < geo_rbt[t]:
+                continue
+            geo_rbt[t] = max(geo_rbt[t], robots[-1:])
             if t == tmax:
-                geo_max = max(geo_max, state[0][GEO])
-                continue
-            if robots[GEO] < best_so_far[t]:
-                continue
+                geo_max.add(state[0][GEO])
             t += 1
             for s in neighbors(state, blueprint):
-                minerals, robots = s
-                if robots[GEO] < best_so_far[t]:
-                    continue
-                best_so_far[t] = max(best_so_far[t], robots[GEO])
-                if (s, t) not in seen:
-                    seen.add((s, t))
-                    heappush(todo, (score(robots), s, t))
-        return geo_max
+                if s not in seen:
+                    seen.add(s)
+                    heappush(todo, (score(s, t), s, t))
+        return max(geo_max)
 
     return bfs
 
@@ -79,7 +89,8 @@ def neighbors(state, blueprint):
     for (i, recipe) in enumerate(blueprint):
         if can_afford(state, recipe):
             yield build(h, i, recipe)
-    yield h
+    if should_harvest(state, blueprint):
+        yield h
 
 
 def extract(blueprint):
