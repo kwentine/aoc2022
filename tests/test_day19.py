@@ -1,7 +1,7 @@
 from day19 import (
     part_one, parse, may_build,
     bfs, harvest, build, can_afford,
-    make_resources, may_accumulate
+    make_resources, hoard_and_build
 )
                    
 import pytest
@@ -50,33 +50,37 @@ def test_build(minerals, kind, recipe, leftovers, robots):
 def test_can_afford(minerals, recipe, expected):
     assert can_afford(make_resources(minerals), recipe) == expected
 
-@pytest.mark.parametrize("minerals, robots, blueprint, expected", [
-    [(0, 0, 0, 0), (1, 0, 0, 0), B1, True],
-    [(2, 0, 0, 0), (1, 0, 0, 0), B1, True],
-    [(5, 0, 0, 0), (1, 0, 0, 0), B1, False],
+    
+@pytest.mark.parametrize("m, state, blueprint, expected", ( 
+    (0, ((1, 0, 0, 0), (1, 0, 0, 0)), B1, True),
+))
+def test_may_build(m, state, blueprint, expected):
+    assert may_build(m, state, blueprint) == expected
+
+@pytest.mark.parametrize("minerals, robots, kind, recipe, exp_m, exp_r, exp_t", [
+    ((0, 0, 0, 0), (1, 0, 0, 0), 0, (4, 0, 0, 0), (1, 0, 0, 0), (2, 0, 0, 0), 5),
+    ((0, 0, 0, 0), (1, 0, 0, 0), 0, (1, 0, 0, 0), (1, 0, 0, 0), (2, 0, 0, 0), 2),
+    ((4, 0, 0, 0), (1, 0, 0, 0), 0, (4, 0, 0, 0), (1, 0, 0, 0), (2, 0, 0, 0), 1)
 ])
-def test_may_accumulate(minerals, robots, blueprint, expected):
+def test_hoard_and_build(minerals, robots, kind, recipe, exp_m, exp_r, exp_t):
     resources = make_resources(minerals, robots)
-    assert may_accumulate(resources, blueprint) == expected
-    
-    
+    r, dt = hoard_and_build(resources, kind, recipe)
+    assert r == make_resources(exp_m, exp_r)
+    assert dt == exp_t
+
+def test_hoard_and_build_timeout():
+    with pytest.raises(TimeoutError):
+        resources = make_resources((0, 0, 0, 0), (1, 0, 0, 0))
+        recipe = (1, 0, 0, 0)
+        max_steps = 1
+        hoard_and_build(resources, 0, recipe, 1)
+
+
 @pytest.mark.parametrize("blueprint, expected", (
     (B1, 9),
     (B2, 12)
 ))
 def test_bfs(blueprint, expected):
     assert bfs(blueprint) == expected
-
-@pytest.mark.skip    
-@pytest.mark.parametrize("m, state, blueprint, expected", ( 
-    (0, ((1, 0, 0, 0), (1, 0, 0, 0)), B1, True),
-))
-def test_may_build_robot(m, state, blueprint, expected):
-    assert may_build_robot(m, state, blueprint) == expected
-
-@pytest.mark.skip
-def test_part_one():
-    blueprints = parse(INPUT)
-    assert part_one(blueprints) == 33
 
 

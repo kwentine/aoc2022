@@ -30,26 +30,31 @@ def harvest(resources):
     return tuple((i + j, j) for (i, j) in resources)
 
 
+
 def build(resources, kind, recipe):
     return tuple((i - recipe[mineral], j + (kind == mineral)) for
             (mineral, (i, j)) in enumerate(resources))
 
 
+def hoard_and_build(resources, kind, recipe, max_steps=MAX_DEPTH):
+    steps = 0
+    while not can_afford(resources, recipe):
+        if steps == max_steps - 1:
+            raise TimeoutError
+        resources = harvest(resources)
+        steps += 1
+    return build(harvest(resources), kind, recipe), steps + 1
+
+
+def hoard(resources, max_steps):
+    while max_steps:
+        resources = harvest(resources)
+        max_steps -= 1
+    return resources
+
+
 def can_afford(resources, recipe):
     return all(i >= y for (i, _), y in zip(resources, recipe))
-
-
-def may_accumulate(resources, blueprint):
-    """Coudl it be useful to just accumulate resources?
-
-    Yes, if it makes a robot recipe affordable in the future.
-    """
-    for recipe in blueprint:
-        if can_afford(resources, recipe): continue
-        robots = get_robots(resources)
-        if all(r for (r, cost) in zip(robots, recipe) if cost):
-            return True
-    return False
 
 
 def may_build(kind, resources, blueprint):
@@ -58,7 +63,7 @@ def may_build(kind, resources, blueprint):
     Yes, if we don't already have enough robots to afford any
     recipe in one round for this particular mineral.
     """
-    _, n_robots = resources[kind]
+    n_robots = get_robot_count(kind, resources)
     return kind == GEO or any(recipe[kind] > n_robots for recipe in blueprint)
 
 
@@ -75,28 +80,36 @@ def parse(input_str: str):
     return blueprints
 
 
-def bfs(blueprint, start_state=START_RESOURCES, max_depth=MAX_DEPTH):
-    todo = deque([(start_state, 0)])
-    seen = {start_state}
+def bfs(blueprint, start_resources=START_RESOURCES, max_depth=MAX_DEPTH):
+    todo = deque([(start_resources, 0)])
+    seen = {start_resources: 0}
     while todo:
-        resources, t = todo.popleft()
+        state = resources, t = todo.popleft()
         if t == max_depth:
             continue
-        t += 1
-        for s in neighbors(resources, blueprint):
-            if s not in seen:
-                seen.add(s)
-                todo.append((s, t))
+        for s in neighbors(state, blueprint, max_depth):
+            nr, nt = s
+            if seen.get(nr, max_depth) < nt:
+                continue
+            seen[nr] = nt
+            todo.append(s)
     return max(geodes(r) for r in seen)
 
 
-def neighbors(resources, blueprint):
-    h = harvest(resources)
+def neighbors(state, blueprint, max_depth):
+    resources, t = state
+    max_steps = max_depth - t
+    may_hoard = get_robot_count(GEO, resources)
     for (kind, recipe) in enumerate(blueprint):
-        if can_afford(resources, recipe) and may_build(kind, resources, blueprint):
-            yield build(h, kind, recipe)
-    if may_accumulate(resources, blueprint):
-        yield h
+        if may_build(kind, resources, blueprint):
+            try:
+                n, dt = hoard_and_build(resources, kind, recipe, max_steps)
+                yield n, t + dt
+                may_hoard = False
+            except TimeoutError:
+                pass
+    if may_hoard:
+        yield hoard(resources, max_steps), max_depth
 
 
 def part_one(data: list[tuple]) -> int:
@@ -116,4 +129,4 @@ def part_two(data: list[tuple]) -> int:
 
 if __name__ == "__main__":
     data = parse(read_input(ints(__file__)[-1]))
-    print(part_two(data))
+    print(part_one(data))
