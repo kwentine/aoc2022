@@ -1,44 +1,65 @@
 from functools import cache
 from utils import read_input, ints
 from tqdm import tqdm
-from collections import defaultdict
-from heapq import heappush, heappop
+from collections import defaultdict, deque
 
 MINERALS = ORE, CLAY, OBS, GEO = range(4)
+START_MINERALS = (0, 0, 0, 0)
+START_ROBOTS = (1, 0, 0, 0)                                       
+START_RESOURCES = tuple(zip(START_MINERALS, START_ROBOTS))
+MAX_DEPTH = 24
 
 
-def harvest(state):
-    minerals, robots = state
-    return tuple(map(sum, zip(minerals, robots))), robots
+def make_resources(minerals=START_MINERALS, robots=START_ROBOTS):
+    return tuple(zip(minerals, robots))
 
 
-def build(state, target, recipe):
-    minerals, robots = state
-    return (tuple(x - y for x, y in zip(minerals, recipe)),
-            tuple(x + (y == target) for x, y in zip(robots, MINERALS)))
+def get_robots(resources):
+    return tuple(j for (i, j) in resources)
 
 
-def should_harvest(state, blueprint):
-    """Harvest if it makes a robot that is not already accessible accessible"""
-    minerals, robots = state
-    for (i, recipe) in enumerate(blueprint):
-        if can_afford(state, recipe):
-            continue
-        if all(robots[j] for (j, cost) in enumerate(recipe) if cost):
+def get_robot_count(kind, resources):
+    return resources[kind][1]
+
+
+def geodes(resources):
+    return resources[GEO][0]
+
+
+def harvest(resources):
+    return tuple((i + j, j) for (i, j) in resources)
+
+
+def build(resources, kind, recipe):
+    return tuple((i - recipe[mineral], j + (kind == mineral)) for
+            (mineral, (i, j)) in enumerate(resources))
+
+
+def can_afford(resources, recipe):
+    return all(i >= y for (i, _), y in zip(resources, recipe))
+
+
+def may_accumulate(resources, blueprint):
+    """Coudl it be useful to just accumulate resources?
+
+    Yes, if it makes a robot recipe affordable in the future.
+    """
+    for recipe in blueprint:
+        if can_afford(resources, recipe): continue
+        robots = get_robots(resources)
+        if all(r for (r, cost) in zip(robots, recipe) if cost):
             return True
     return False
 
 
-def can_afford(state, recipe):
-    minerals, _ = state
-    return all(x >= y for x, y in zip(minerals, recipe))
+def may_build(kind, resources, blueprint):
+    """Should we try to build a particular robot ?
 
-
-def may_build_robot(m, state, blueprint):
-    minerals, robots = state
-    if m == ORE and robots[CLAY]:
-        return False
-    return True
+    Yes, if we don't already have enough robots to afford any
+    recipe in one round for this particular mineral.
+    """
+    _, n_robots = resources[kind]
+    return kind == GEO or any(recipe[kind] > n_robots for recipe in blueprint)
 
 
 def parse(input_str: str):
@@ -54,76 +75,45 @@ def parse(input_str: str):
     return blueprints
 
 
-def score(state, t):
-    minerals, robots = state
-    return t, -state[1][GEO]
+def bfs(blueprint, start_state=START_RESOURCES, max_depth=MAX_DEPTH):
+    todo = deque([(start_state, 0)])
+    seen = {start_state}
+    while todo:
+        resources, t = todo.popleft()
+        if t == max_depth:
+            continue
+        t += 1
+        for s in neighbors(resources, blueprint):
+            if s not in seen:
+                seen.add(s)
+                todo.append((s, t))
+    return max(geodes(r) for r in seen)
 
 
-def bfs_explorer(blueprint, tmax):
-
-    def bfs(start_state):
-        todo = [(score(start_state, 0), start_state, 0)]
-        seen = {(start_state, 0)}
-        geo_rbt = defaultdict(lambda: (0,))
-        geo_max = set()
-        while todo and len(geo_max) < 1:
-            _, state, t = heappop(todo)
-            minerals, robots = state
-            if robots[-1:] < geo_rbt[t]:
-                continue
-            geo_rbt[t] = max(geo_rbt[t], robots[-1:])
-            if t == tmax:
-                geo_max.add(state[0][GEO])
-            t += 1
-            for s in neighbors(state, blueprint):
-                if s not in seen:
-                    seen.add(s)
-                    heappush(todo, (score(s, t), s, t))
-        return max(geo_max)
-
-    return bfs
-
-
-def neighbors(state, blueprint):
-    h = harvest(state)
-    for (i, recipe) in enumerate(blueprint):
-        if can_afford(state, recipe):
-            yield build(h, i, recipe)
-    if should_harvest(state, blueprint):
+def neighbors(resources, blueprint):
+    h = harvest(resources)
+    for (kind, recipe) in enumerate(blueprint):
+        if can_afford(resources, recipe) and may_build(kind, resources, blueprint):
+            yield build(h, kind, recipe)
+    if may_accumulate(resources, blueprint):
         yield h
-
-
-def extract(blueprint):
-
-    @cache
-    def explore(state, countdown):
-        minerals, robots = state
-        if not countdown:
-            return minerals[GEO]
-        countdown -= 1
-        h = harvest(state)
-        next_states = {h}
-        for (i, recipe) in enumerate(blueprint):
-            if can_afford(state, recipe) and may_build_robot(i, state, blueprint):
-                ns = build(h, i, recipe)
-                next_states.add(ns)
-        return max(explore(s, countdown) for s in next_states)
-
-    return explore
 
 
 def part_one(data: list[tuple]) -> int:
     result = 0
-    start = (0, 0, 0, 0), (1, 0, 0, 0)
     for i, blueprint in tqdm(list(enumerate(data, 1))):
-        result += i * bfs_explorer(blueprint, 24)(start)
+        result += i * bfs(blueprint)
     return result
 
 
 def part_two(data: list[tuple]) -> int:
-    pass
+    result = 1
+    for blueprint in tqdm(data[:3]):
+        result *= bfs(blueprint, max_depth=32)
+    return result
+
 
 
 if __name__ == "__main__":
     data = parse(read_input(ints(__file__)[-1]))
-    print(part_one(data))
+    print(part_two(data))
