@@ -9,6 +9,9 @@ START_ROBOTS = (1, 0, 0, 0)
 START_RESOURCES = tuple(zip(START_MINERALS, START_ROBOTS))
 MAX_DEPTH = 24
 
+def max_robots(blueprint):
+    return tuple(max(col) for col in zip(*blueprint))
+
 
 def make_resources(minerals=START_MINERALS, robots=START_ROBOTS):
     return tuple(zip(minerals, robots))
@@ -26,8 +29,8 @@ def geodes(resources):
     return resources[GEO][0]
 
 
-def harvest(resources):
-    return tuple((i + j, j) for (i, j) in resources)
+def harvest(resources, steps=1):
+    return tuple((i + j * steps, j) for (i, j) in resources)
 
 
 def build(resources, kind, recipe):
@@ -45,25 +48,16 @@ def hoard_and_build(resources, kind, recipe, max_steps=MAX_DEPTH):
     return build(harvest(resources), kind, recipe), steps + 1
 
 
-def hoard(resources, max_steps):
-    while max_steps:
-        resources = harvest(resources)
-        max_steps -= 1
-    return resources
-
-
 def can_afford(resources, recipe):
     return all(i >= y for (i, _), y in zip(resources, recipe))
 
 
-def to_build(resources, blueprint):
+def to_build(robots, blueprint):
     """Should we try to build a particular robot ?
 
     Yes, if we don't already have enough robots to afford any
     recipe in one round for this particular mineral.
     """
-    robots = get_robots(resources)
-
     geo = True
     obs = robots[OBS] < blueprint[GEO][OBS] and geo
     clay = robots[CLAY] < blueprint[OBS][CLAY] and obs
@@ -71,6 +65,7 @@ def to_build(resources, blueprint):
            or (robots[ORE] < blueprint[OBS][ORE] and obs)
            or (robots[ORE] < blueprint[GEO][ORE] and geo))
     return (ore, clay, obs, geo)
+
 
 def parse(input_str: str):
     blueprints = []
@@ -87,37 +82,39 @@ def parse(input_str: str):
 
 def bfs(blueprint, start_resources=START_RESOURCES, max_depth=MAX_DEPTH):
     todo = deque([(start_resources, 0)])
-    done = set()
+    seen = {start_resources: 0}
+    geo_max = 0
+    geo_argmax = set()
     while todo:
         state = resources, t = todo.popleft()
         if t == max_depth:
-            done.add(resources)
+            geo = resources[GEO][0]
+            if geo == geo_max:
+                geo_argmax.add(resources)
+            elif geo > geo_max:
+                geo_max = geo
+                geo_argmax = {resources}
             continue
-        for s in neighbors(state, blueprint, max_depth):
-            todo.append(s)
-    return argmax(done, geodes)
-
-
-def argmax(seen, scorefunc):
-    max_score = 0
-    winners = []
-    for r in seen:
-        g = scorefunc(r)
-        if g == max_score:
-            winners.append(r)
-        elif g > max_score:
-            winners = [r]
-            max_score  = g
-    return max_score, winners
+        for nr, nt in neighbors(state, blueprint, max_depth):
+            if nr not in seen or seen[nr] > nt:
+                seen[nr] = nt
+                todo.append((nr, nt))
+    return geo_max, geo_argmax
 
 
 def neighbors(state, blueprint, max_depth):
     resources, t = state
+    robots = get_robots(resources)
     max_steps = max_depth - t
     may_hoard = get_robot_count(GEO, resources)
-    
-    for (kind, build) in enumerate(to_build(resources, blueprint)):
-        if not build: continue
+    if can_afford(resources, blueprint[GEO]):
+        n, dt = hoard_and_build(resources, GEO, blueprint[GEO], max_steps)
+        yield n, t + dt
+        return
+    for (kind, build) in enumerate(to_build(robots, blueprint)):
+        if not build and not kind == GEO: continue
+        # Don't try to hoard if 
+        if not all(robots[i] for (i, cost) in enumerate(blueprint[kind]) if cost): continue 
         try:
             n, dt = hoard_and_build(resources, kind, blueprint[kind], max_steps)
             yield n, t + dt
@@ -125,14 +122,14 @@ def neighbors(state, blueprint, max_depth):
         except TimeoutError:
             pass
     if may_hoard:
-        yield hoard(resources, max_steps), max_depth
+        yield harvest(resources, steps=max_steps), max_depth
 
 
 def run(data, i, max_depth=MAX_DEPTH):
     blueprint = data[i]
     print(blueprint)
     g, winners = bfs(blueprint, max_depth=max_depth)
-    print(winners[:5])
+    print(list(winners)[:5])
 
         
 def part_one(data: list[tuple]) -> int:
@@ -154,4 +151,4 @@ def part_two(data: list[tuple]) -> int:
 data = parse(read_input(ints(__file__)[-1]))
 
 if __name__ == "__main__":
-   run(data, 0, 24)
+    run(data, 0, 32)
