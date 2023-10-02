@@ -1,5 +1,5 @@
 from day19 import (
-    part_one, parse, to_build,
+    part_one, parse, wanted_robots,
     bfs, harvest, build, can_afford,
     make_resources, hoard_and_build
 )
@@ -55,7 +55,7 @@ def test_can_afford(minerals, recipe, expected):
     (0, (1, 0, 0, 0), B1, (1, 1, 1, 1)),
 ))
 def test_to_build(kind, robots, blueprint, expected):
-    assert to_build(robots, blueprint) == expected
+    assert wanted_robots(robots, blueprint) == expected
 
 @pytest.mark.parametrize("minerals, robots, kind, recipe, exp_m, exp_r, exp_t", [
     ((0, 0, 0, 0), (1, 0, 0, 0), 0, (4, 0, 0, 0), (1, 0, 0, 0), (2, 0, 0, 0), 5),
