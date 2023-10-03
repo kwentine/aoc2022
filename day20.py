@@ -1,18 +1,21 @@
 from utils import read_input, ints
 from typing import Any
+import itertools
+
 
 def parse(input_str: str):
     return ints(input_str)
+
 
 class Item:
     def __init__(self, value, prev=None, nxt=None):
         self.value = value
         self.nxt = nxt
         self.prev = prev
-        
+
     def __str__(self):
         return str(self.value)
-    
+
     def __iter__(self):
         yield self
         current = self.nxt
@@ -25,10 +28,10 @@ class Item:
             return self
         res = self
         if n > 0:
-            next_attr = 'nxt'
+            next_attr = "nxt"
             incr = -1
         else:
-            next_attr = 'prev'
+            next_attr = "prev"
             incr = 1
         while n:
             res = getattr(res, next_attr)
@@ -36,10 +39,21 @@ class Item:
         return res
 
 
+def make_list(numbers):
+    """Create a doubly linked list of integer items"""
+    l = len(numbers)
+    items = [Item(n) for n in numbers]
+    for i, item in enumerate(items):
+        item.nxt = items[(i + 1) % l]
+        item.prev = items[i - 1]
+    return items[0]
+
+
 def find(value, head):
     for item in head:
         if item.value == value:
             return item
+
 
 def remove(item):
     item.prev.nxt = item.nxt
@@ -56,53 +70,46 @@ def insert_before(item, other):
     return item
 
 
-def make_list(numbers):
-    """Create a doubly linked list"""
-    l = len(numbers)
-    items = [Item(n) for n in numbers]
-    for (i, item) in enumerate(items):
-        item.nxt = items[(i + 1) % l]
-        item.prev = items[i - 1]
-    return items[0]
+def wrap(value, length):
+    if not length:
+        return value
+    value = value % length
+    if value >= length // 2:
+        value -= length
+    return value
 
 
-def mix(item):
-    other = item[item.value]
-    if item.value > 0:
-        after, before = other, other.nxt
-    else:
-        after, before = other.prev, other
-    if item not in (after, before):
-        remove(item)
-        insert_before(item, before)
-    return item
+def move(head, steps):
+    nxt = head.nxt
+    remove(head)
+    nxt = nxt[steps]
+    insert_before(head, nxt)
+    return head
 
 
-def mix_all(items):
-    for item in items:
-        mix(item)
-    
-def to_string(head):
-    return ", ".join(str(i) for i in head)
+def mix(items, times=1):
+    length = len(items)
+    for _ in range(times):
+        for head in items:
+            move(head, wrap(head.value, length - 1))
 
-def values(head):
-    return [i.value for i in head]
 
 def part_one(data: Any) -> int:
     head = make_list(data)
-    print(data[-10:])
-    mix_all(list(head))
+    items = list(head)
+    mix(items)
     zero = find(0, head)
-    x = zero[1000]
-    y = x[1000]
-    z = y[1000]
-    return x.value + y.value + z.value
+    return sum(zero[i * 1000].value for i in (1, 2, 3))
+
 
 def part_two(data: Any) -> int:
-    pass
+    head = make_list([i * 811589153 for i in data])
+    items = list(head)
+    mix(items, times=10)
+    zero = find(0, head)
+    return sum(zero[i * 1000].value for i in (1, 2, 3))
+
 
 if __name__ == "__main__":
     data = parse(read_input(ints(__file__)[-1]))
-    print(part_one(data))
-    
-    
+    print(part_two(data))
