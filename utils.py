@@ -7,7 +7,7 @@ def read_input(day: int) -> str:
 
 
 def ints(line: str) -> list[int]:
-    return [int(i) for i in re.findall(r"\d+", line)]
+    return [int(i) for i in re.findall(r"-?\d+", line)]
 
 
 def l1(x: tuple[int], y: tuple[int]) -> int:
