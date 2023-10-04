@@ -1,6 +1,4 @@
 from utils import read_input, ints
-from typing import Any
-import itertools
 
 
 def parse(input_str: str):
@@ -94,7 +92,7 @@ def mix(items, times=1):
             move(head, wrap(head.value, length - 1))
 
 
-def part_one(data: Any) -> int:
+def part_one(data: list[int]) -> int:
     head = make_list(data)
     items = list(head)
     mix(items)
@@ -102,7 +100,7 @@ def part_one(data: Any) -> int:
     return sum(zero[i * 1000].value for i in (1, 2, 3))
 
 
-def part_two(data: Any) -> int:
+def part_two(data: list[int]) -> int:
     head = make_list([i * 811589153 for i in data])
     items = list(head)
     mix(items, times=10)
