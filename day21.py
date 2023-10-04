@@ -23,7 +23,8 @@ def parse(input_str: str):
     return result
 
 
-def flatten(tree, *variables, root=ROOT):
+def flatten(tree, variables=None, root=ROOT):
+    variables = variables or []
     tree = {k: v for k, v in tree.items() if k not in variables}
     # ROOT could be a variable
     todo = [tree.get(ROOT, ROOT)]
@@ -42,37 +43,46 @@ def flatten(tree, *variables, root=ROOT):
 
 def monkey_eval(expr, **variables):
     stack = []
-    while expr:
-        i = expr.pop()
+    ptr = len(expr)
+    while ptr:
+        i = expr[ptr - 1]
         if i not in OPS:
             stack.append(variables.get(i, i))
         else:
             stack.append(OPS[i](stack.pop(), stack.pop()))
+        ptr -= 1
     return stack.pop()
 
-
-def humn_influence(data):
-    # root: bjgs + tjtt
-    data['humn'] = 'humn'
-    data['root'] = ('-', 'bjgs', 'tjtt')
-    expr = flatten(data, variables=('humn',))
-    for humn in range(10):
-        res = monkey_eval(expr[:], humn=humn)
-        print(f"{humn=} {res=}")
-    data['root'] = ('+', 'bjgs', 'tjtt')
-    expr = flatten(data, variables=('humn',))
-    assert monkey_eval(expr[:], humn=105) == 145167969204648
-        
 
 def part_one(data: Any) -> int:
     return monkey_eval(flatten(data))
 
+def part_two(data):
+    """Search for 'humn' by dichotomy
 
-def part_two(data: Any) -> int:
-    pass
+    The 'root' operation is transformed into a difference. We search
+    for a value of 'humn' that makes it evaluate to 0.
 
+    Observations show that v -> monkey_eval(expr, v) is positive and
+    decreasing for small values of v.
+    """
+    _, l, r = data['root']
+    data['root'] = ('-', l, r)
+    expr = flatten(data, variables=['humn'])
+    a, b = (0, 1)
+    while v := monkey_eval(expr, humn=b) >= 0:
+        a, b = b, 2 * b
+    while 1:
+        m = (a + b) // 2
+        v = monkey_eval(expr, humn=m)
+        if not v:
+            return m
+        if v > 0:
+            a, b = m, b
+        else:
+            a, b = a, m
 
 if __name__ == "__main__":
     data = parse(read_input(ints(__file__)[-1]))
-    print(part_one(data))
+    print(part_two(data))
         

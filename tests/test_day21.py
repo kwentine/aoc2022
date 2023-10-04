@@ -12,7 +12,7 @@ def test_flatten():
         'root': ('+', 'foo', 'humn'),
         'foo': ('-', 3, 'humn')
     }
-    assert flatten(tree, 'humn') == ['+', '-', 3, 'humn', 'humn']
+    assert flatten(tree, variables=['humn']) == ['+', '-', 3, 'humn', 'humn']
 
 
 def test_monkey_eval():
